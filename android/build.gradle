@@ -2,14 +2,14 @@ group 'synapticvoid.espblufi'
 version '1.0-SNAPSHOT'
 
 buildscript {
-    ext.kotlin_version = '1.7.10'
+    ext.kotlin_version = '1.7.21'
     repositories {
         google()
         mavenCentral()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:7.2.0'
+        classpath 'com.android.tools.build:gradle:7.2.2'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
@@ -25,7 +25,11 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
-    compileSdkVersion 31
+    compileSdkVersion 33
+    defaultConfig {
+        minSdkVersion 23
+        targetSdk 33
+    }
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -40,7 +44,14 @@ android {
         main.java.srcDirs += 'src/main/kotlin'
     }
 
-    defaultConfig {
-        minSdkVersion 16
-    }
+}
+
+dependencies {
+
+    implementation 'androidx.core:core-ktx:1.9.0'
+
+
+    // Symbol resolution only, comment this when building the library
+    // https://stackoverflow.com/questions/64468323/flutter-cannot-resolve-symbol-embedding-and-cannot-resolve-symbol-flutteracti
+//    implementation files('tmplibs/flutter.jar')
 }

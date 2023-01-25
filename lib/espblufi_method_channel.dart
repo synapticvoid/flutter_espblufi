@@ -14,4 +14,9 @@ class MethodChannelEspblufi extends EspblufiPlatform {
     final version = await methodChannel.invokeMethod<String>('getPlatformVersion');
     return version;
   }
+
+  @override
+  Future<void> startScan() async {
+    await methodChannel.invokeMethod('startScan');
+  }
 }
