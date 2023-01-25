@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
 import 'dart:async';
 
-import 'package:flutter/services.dart';
 import 'package:espblufi/espblufi.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 void main() {
   runApp(const MyApp());
@@ -53,17 +53,31 @@ class _MyAppState extends State<MyApp> {
         appBar: AppBar(
           title: const Text('Plugin example app'),
         ),
-        body: Center(
-          child: Column(
-            children: [
-              Text('Running on: $_platformVersion\n'),
-              ElevatedButton(
-                  onPressed: () {
-                    _espblufiPlugin.startScan();
-                  },
-                  child: Text("Scan"))
-            ],
-          ),
+        body: Column(
+          children: [
+            Text('Running on: $_platformVersion\n'),
+            ElevatedButton(
+                onPressed: () {
+                  _espblufiPlugin.startScan();
+                },
+                child: Text("Scan")),
+            Expanded(
+              child: StreamBuilder<String>(
+                  stream: _espblufiPlugin.scanResults(),
+                  builder: (context, snapshot) {
+                    final list = [snapshot.data ?? ""];
+
+                    return ListView.builder(
+                        itemCount: list.length,
+                        itemBuilder: (context, index) {
+                          final item = list[index];
+                          return Row(
+                            children: [Text(item)],
+                          );
+                        });
+                  }),
+            )
+          ],
         ),
       ),
     );

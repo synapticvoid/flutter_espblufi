@@ -26,4 +26,6 @@ abstract class EspblufiPlatform extends PlatformInterface {
   Future<String?> getPlatformVersion();
 
   Future<void> startScan();
+
+  Stream<String> get scanResults;
 }

@@ -8,6 +8,11 @@ class MethodChannelEspblufi extends EspblufiPlatform {
   /// The method channel used to interact with the native platform.
   @visibleForTesting
   final methodChannel = const MethodChannel('espblufi');
+  final eventChannel = const EventChannel("espblufi/state");
+
+  @override
+  Stream<String> get scanResults =>
+      eventChannel.receiveBroadcastStream().distinct().map((event) => event as String);
 
   @override
   Future<String?> getPlatformVersion() async {

@@ -19,6 +19,7 @@ import androidx.core.content.ContextCompat
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
@@ -31,13 +32,16 @@ private const val REQUEST_PERMISSION = 1
 
 /** EspblufiPlugin */
 class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
-    PluginRegistry.RequestPermissionsResultListener {
+    PluginRegistry.RequestPermissionsResultListener, EventChannel.StreamHandler {
+
+    private var sink: EventChannel.EventSink? = null
 
     /// The MethodChannel that will the communication between Flutter and native Android
     ///
     /// This local reference serves to register the plugin with the Flutter Engine and unregister it
     /// when the Flutter Engine is detached from the Activity
     private lateinit var channel: MethodChannel
+    private lateinit var eventChannel: EventChannel
 
     private lateinit var context: Context
     lateinit var binding: ActivityPluginBinding
@@ -51,6 +55,9 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "espblufi")
         channel.setMethodCallHandler(this)
+
+        eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "espblufi/state")
+        eventChannel.setStreamHandler(this)
 
         context = flutterPluginBinding.applicationContext
         handler = Handler(Looper.getMainLooper())
@@ -72,6 +79,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
+        eventChannel.setStreamHandler(null)
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
@@ -79,19 +87,17 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         binding.addRequestPermissionsResultListener(this)
     }
 
-    override fun onDetachedFromActivityForConfigChanges() {
+    override fun onDetachedFromActivityForConfigChanges() {}
+
+    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {}
+
+    override fun onDetachedFromActivity() {
         binding.removeRequestPermissionsResultListener(this)
 
         // Stop Scan
         if (scanning) {
             scanLeDevice()
         }
-    }
-
-    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
-    }
-
-    override fun onDetachedFromActivity() {
     }
 
     private fun startScan() {
@@ -103,29 +109,13 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
 
         scanLeDevice()
-
     }
 
     private val leScanCallback: ScanCallback = object : ScanCallback() {
+        @SuppressLint("MissingPermission")
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             super.onScanResult(callbackType, result)
             val device = result!!.device
-            if (ActivityCompat.checkSelfPermission(
-                    binding.activity,
-                    Manifest.permission.BLUETOOTH_CONNECT
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                // TODO: Consider calling
-                //    ActivityCompat#requestPermissions
-                // here to request the missing permissions, and then overriding
-                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                //                                          int[] grantResults)
-                // to handle the case where the user grants the permission. See the documentation
-                // for ActivityCompat#requestPermissions for more details.
-                Log.w(TAG, "onScanResult: No BLUETOOTH_CONNECT PERMISSIONS")
-                return
-            }
-
             val name: String? = device.name
             Log.d(
                 TAG,
@@ -139,6 +129,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
             Log.i(TAG, "onScanResult: Added device ${device.name}")
             leDevices.add(device)
+            sink?.success(device.address)
         }
     }
 
@@ -197,5 +188,13 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
         return true
 
+    }
+
+    override fun onListen(obj: Any?, eventSink: EventChannel.EventSink?) {
+        sink = eventSink
+    }
+
+    override fun onCancel(obj: Any?) {
+        sink = null
     }
 }
