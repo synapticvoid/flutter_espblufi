@@ -19,6 +19,8 @@ class _MyAppState extends State<MyApp> {
   String _platformVersion = 'Unknown';
   final _espblufiPlugin = Espblufi();
 
+  String deviceMessage = "";
+
   @override
   void initState() {
     super.initState();
@@ -70,6 +72,14 @@ class _MyAppState extends State<MyApp> {
                     child: Text("Disconnect")),
               ],
             ),
+            Text(deviceMessage),
+            StreamBuilder<String>(
+              stream: _espblufiPlugin.state(),
+              builder: (context, snapshot) {
+                final state = snapshot.data ?? "";
+                return Text("state=$state");
+              },
+            ),
             Expanded(
               child: StreamBuilder<String>(
                   stream: _espblufiPlugin.scanResults(),
@@ -80,14 +90,32 @@ class _MyAppState extends State<MyApp> {
                         itemCount: list.length,
                         itemBuilder: (context, index) {
                           final item = list[index];
-                          return Row(
+                          return Column(
                             children: [
                               Text(item),
-                              ElevatedButton(
-                                  onPressed: () {
-                                    _espblufiPlugin.connect(item);
-                                  },
-                                  child: Text("Connect")),
+                              Row(
+                                children: [
+                                  ElevatedButton(
+                                      onPressed: () {
+                                        _espblufiPlugin.connect(item);
+                                      },
+                                      child: Text("Connect")),
+                                  ElevatedButton(
+                                      onPressed: () async {
+                                        String version =
+                                            await _espblufiPlugin.requestDeviceVersion();
+                                        setState(() {
+                                          deviceMessage = "Connected to $item, version=$version";
+                                        });
+                                      },
+                                      child: Text("Version")),
+                                  ElevatedButton(
+                                      onPressed: () async {
+                                        await _espblufiPlugin.postCustomData("v");
+                                      },
+                                      child: Text("Custom v")),
+                                ],
+                              ),
                             ],
                           );
                         });

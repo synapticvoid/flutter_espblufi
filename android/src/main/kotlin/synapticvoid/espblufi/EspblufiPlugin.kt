@@ -42,16 +42,19 @@ private const val DEFAULT_MTU_LENGTH = 512
 
 /** EspblufiPlugin */
 class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
-    PluginRegistry.RequestPermissionsResultListener, EventChannel.StreamHandler {
+    PluginRegistry.RequestPermissionsResultListener {
 
-    private var sink: EventChannel.EventSink? = null
+    private var resultDeviceVersion: Result? = null
+    private var scanResultsSink: EventChannel.EventSink? = null
+    private var stateSink: EventChannel.EventSink? = null
 
     /// The MethodChannel that will the communication between Flutter and native Android
     ///
     /// This local reference serves to register the plugin with the Flutter Engine and unregister it
     /// when the Flutter Engine is detached from the Activity
     private lateinit var channel: MethodChannel
-    private lateinit var eventChannel: EventChannel
+    private lateinit var scanResultsChannel: EventChannel
+    private lateinit var stateChannel: EventChannel
 
     private lateinit var context: Context
     lateinit var binding: ActivityPluginBinding
@@ -71,8 +74,29 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "espblufi")
         channel.setMethodCallHandler(this)
 
-        eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "espblufi/state")
-        eventChannel.setStreamHandler(this)
+        scanResultsChannel =
+            EventChannel(flutterPluginBinding.binaryMessenger, "espblufi/scanResults")
+        scanResultsChannel.setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(obj: Any?, sink: EventChannel.EventSink?) {
+                scanResultsSink = sink
+            }
+
+            override fun onCancel(obj: Any?) {
+                scanResultsSink = null
+            }
+        })
+
+        stateChannel =
+            EventChannel(flutterPluginBinding.binaryMessenger, "espblufi/state")
+        stateChannel.setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(obj: Any?, sink: EventChannel.EventSink?) {
+                stateSink = sink
+            }
+
+            override fun onCancel(obj: Any?) {
+                stateSink = null
+            }
+        })
 
         context = flutterPluginBinding.applicationContext
         handler = Handler(Looper.getMainLooper())
@@ -91,15 +115,37 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 connect(macAddress)
                 result.success(true)
             }
-
             "disconnect" -> {
                 disconnect()
+                result.success(true)
+            }
+            "requestDeviceVersion" -> {
+                requestDeviceVersion(result)
+            }
+            "postCustomData" -> {
+                val data = call.argument<String?>("data") ?: ""
+                postCustomData(data)
                 result.success(true)
             }
             else -> {
                 result.notImplemented()
             }
         }
+    }
+
+    private fun postCustomData(data: String) {
+        Log.i(TAG, "postCustomData: data=$data")
+        if (data.isEmpty()) {
+            return
+        }
+
+        blufiClient?.postCustomData(data.toByteArray())
+
+    }
+
+    private fun requestDeviceVersion(result: Result) {
+        this.resultDeviceVersion = result
+        blufiClient?.requestDeviceVersion()
     }
 
     private fun connect(macAddress: String) {
@@ -122,7 +168,8 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
-        eventChannel.setStreamHandler(null)
+        scanResultsChannel.setStreamHandler(null)
+        stateChannel.setStreamHandler(null)
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
@@ -159,19 +206,21 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             super.onScanResult(callbackType, result)
             val device = result!!.device
             val name: String? = device.name
-            Log.d(
-                TAG,
-                "onScanResult: name=${name}, mac=${device.address}, type=${device.type}"
-            )
+//            Log.d(
+//                TAG,
+//                "onScanResult: name=${name}, mac=${device.address}, type=${device.type}"
+//            )
 
             if (name == null || !name.startsWith("BLUFI")) {
-                Log.d(TAG, "onScanResult: invalid name")
+//                Log.d(TAG, "onScanResult: invalid name")
                 return
             }
 
             Log.i(TAG, "onScanResult: Added device ${device.name}")
             leDevices.add(device)
-            sink?.success(device.address)
+
+            // FIXME Proper object and list !
+            scanResultsSink?.success(device.address)
         }
     }
 
@@ -230,14 +279,6 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
         return true
 
-    }
-
-    override fun onListen(obj: Any?, eventSink: EventChannel.EventSink?) {
-        sink = eventSink
-    }
-
-    override fun onCancel(obj: Any?) {
-        sink = null
     }
 
     fun onGattConnected() {
@@ -450,13 +491,19 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             status: Int,
             response: BlufiVersionResponse
         ) {
-            if (status == STATUS_SUCCESS) {
-                updateMessage(
-                    String.format("Receive device version: %s", response.versionString),
-                    true
-                )
-            } else {
-                updateMessage("Device version error, code=$status", false)
+            when (status) {
+                STATUS_SUCCESS -> {
+                    resultDeviceVersion?.success(response.versionString)
+                    updateMessage(
+                        String.format("Receive device version: %s", response.versionString),
+                        true
+                    )
+                }
+                else -> {
+                    val message = "Device version error, code=$status"
+                    resultDeviceVersion?.error("device_version", message, null)
+                    updateMessage(message, false)
+                }
             }
         }
 
@@ -474,6 +521,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             if (status == STATUS_SUCCESS) {
                 val customStr = String(data)
                 updateMessage(String.format("Receive custom data:\n%s", customStr), true)
+                stateSink?.success(customStr)
             } else {
                 updateMessage("Receive custom data error, code=$status", false)
             }
@@ -494,6 +542,6 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
     }
 
     fun updateMessage(message: String, isNotification: Boolean) {
-
+        Log.d(TAG, message)
     }
 }

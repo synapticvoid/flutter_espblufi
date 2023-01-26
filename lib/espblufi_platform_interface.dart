@@ -29,7 +29,13 @@ abstract class EspblufiPlatform extends PlatformInterface {
 
   Stream<String> get scanResults;
 
+  Stream<String> get state;
+
   Future<void> connect(String macAddress);
 
   Future<void> disconnect();
+
+  Future<String> requestDeviceVersion();
+
+  Future<void> postCustomData(String data);
 }

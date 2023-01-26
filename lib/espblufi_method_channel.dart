@@ -8,32 +8,47 @@ class MethodChannelEspblufi extends EspblufiPlatform {
   /// The method channel used to interact with the native platform.
   @visibleForTesting
   final methodChannel = const MethodChannel('espblufi');
-  final eventChannel = const EventChannel("espblufi/state");
+  final scanResultsChannel = const EventChannel("espblufi/scanResults");
+  final stateChannel = const EventChannel("espblufi/state");
 
   @override
   Stream<String> get scanResults =>
-      eventChannel.receiveBroadcastStream().distinct().map((event) => event as String);
+      scanResultsChannel.receiveBroadcastStream().distinct().map((event) => event as String);
 
   @override
-  Future<String?> getPlatformVersion() async {
-    final version = await methodChannel.invokeMethod<String>('getPlatformVersion');
-    return version;
+  Stream<String> get state => stateChannel.receiveBroadcastStream().map((event) => event as String);
+
+  @override
+  Future<String?> getPlatformVersion() {
+    return methodChannel.invokeMethod<String>('getPlatformVersion');
   }
 
   @override
-  Future<void> startScan() async {
-    await methodChannel.invokeMethod('startScan');
+  Future<void> startScan() {
+    return methodChannel.invokeMethod('startScan');
   }
 
   @override
-  Future<void> connect(String macAddress) async {
-    await methodChannel.invokeMethod("connect", {
+  Future<void> connect(String macAddress) {
+    return methodChannel.invokeMethod("connect", {
       "macAddress": macAddress,
     });
   }
 
   @override
-  Future<void> disconnect() async {
-    await methodChannel.invokeMethod('disconnect');
+  Future<void> disconnect() {
+    return methodChannel.invokeMethod('disconnect');
+  }
+
+  @override
+  Future<String> requestDeviceVersion() async {
+    return await methodChannel.invokeMethod<String>('requestDeviceVersion') ?? "";
+  }
+
+  @override
+  Future<void> postCustomData(String data) {
+    return methodChannel.invokeMethod('postCustomData', {
+      "data": data,
+    });
   }
 }
