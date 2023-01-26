@@ -56,11 +56,20 @@ class _MyAppState extends State<MyApp> {
         body: Column(
           children: [
             Text('Running on: $_platformVersion\n'),
-            ElevatedButton(
-                onPressed: () {
-                  _espblufiPlugin.startScan();
-                },
-                child: Text("Scan")),
+            Row(
+              children: [
+                ElevatedButton(
+                    onPressed: () {
+                      _espblufiPlugin.startScan();
+                    },
+                    child: Text("Scan")),
+                ElevatedButton(
+                    onPressed: () {
+                      _espblufiPlugin.disconnect();
+                    },
+                    child: Text("Disconnect")),
+              ],
+            ),
             Expanded(
               child: StreamBuilder<String>(
                   stream: _espblufiPlugin.scanResults(),
@@ -72,7 +81,14 @@ class _MyAppState extends State<MyApp> {
                         itemBuilder: (context, index) {
                           final item = list[index];
                           return Row(
-                            children: [Text(item)],
+                            children: [
+                              Text(item),
+                              ElevatedButton(
+                                  onPressed: () {
+                                    _espblufiPlugin.connect(item);
+                                  },
+                                  child: Text("Connect")),
+                            ],
                           );
                         });
                   }),

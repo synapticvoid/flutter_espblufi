@@ -3,8 +3,7 @@ package synapticvoid.espblufi
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothManager
+import android.bluetooth.*
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
@@ -16,6 +15,12 @@ import android.os.Looper
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import blufi.espressif.BlufiCallback
+import blufi.espressif.BlufiClient
+import blufi.espressif.params.BlufiParameter
+import blufi.espressif.response.BlufiScanResult
+import blufi.espressif.response.BlufiStatusResponse
+import blufi.espressif.response.BlufiVersionResponse
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -25,10 +30,15 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import io.flutter.plugin.common.PluginRegistry
+import java.util.*
 
 private const val TAG = "EspblufiPlugin"
 
 private const val REQUEST_PERMISSION = 1
+
+private const val GATT_WRITE_TIMEOUT = 5000L
+
+private const val DEFAULT_MTU_LENGTH = 512
 
 /** EspblufiPlugin */
 class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
@@ -52,6 +62,11 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
     private lateinit var handler: Handler
     private val leDevices = mutableListOf<BluetoothDevice>()
 
+    // Blufi
+    private var device: BluetoothDevice? = null
+    private var blufiClient: BlufiClient? = null
+    private var connected: Boolean = false
+
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "espblufi")
         channel.setMethodCallHandler(this)
@@ -71,10 +86,38 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             "startScan" -> {
                 startScan()
             }
+            "connect" -> {
+                val macAddress = call.argument<String?>("macAddress") ?: ""
+                connect(macAddress)
+                result.success(true)
+            }
+
+            "disconnect" -> {
+                disconnect()
+                result.success(true)
+            }
             else -> {
                 result.notImplemented()
             }
         }
+    }
+
+    private fun connect(macAddress: String) {
+        device = leDevices.first { device -> device.address == macAddress }
+        if (blufiClient != null) {
+            blufiClient?.close()
+            blufiClient = null
+        }
+
+        blufiClient = BlufiClient(binding.activity, device)
+        blufiClient!!.setGattCallback(GattCallback())
+        blufiClient!!.setBlufiCallback(BlufiCallbackMain())
+        blufiClient!!.setGattWriteTimeout(GATT_WRITE_TIMEOUT)
+        blufiClient!!.connect()
+    }
+
+    private fun disconnect() {
+        blufiClient?.requestCloseConnection()
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
@@ -106,7 +149,6 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         val bluetoothManager = context.getSystemService(BluetoothManager::class.java)
         val bluetoothAdapter = bluetoothManager.adapter
         bluetoothLeScanner = bluetoothAdapter.bluetoothLeScanner
-
 
         scanLeDevice()
     }
@@ -196,5 +238,262 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
     override fun onCancel(obj: Any?) {
         sink = null
+    }
+
+    fun onGattConnected() {
+        // FIXME fill method
+        connected = true
+    }
+
+    fun onGattDisconnected() {
+        // FIXME fill method
+        connected = false
+    }
+
+    private fun onGattServiceCharacteristicDiscovered() {
+        // FIXME implement
+    }
+
+
+    private inner class GattCallback : BluetoothGattCallback() {
+        @SuppressLint("MissingPermission")
+        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+            val devAddr = gatt.device.address
+            Log.d(
+                TAG,
+                String.format(
+                    Locale.ENGLISH, "onConnectionStateChange addr=%s, status=%d, newState=%d",
+                    devAddr, status, newState
+                )
+            )
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                when (newState) {
+                    BluetoothProfile.STATE_CONNECTED -> {
+                        onGattConnected()
+                        updateMessage(String.format("Connected %s", devAddr), false)
+                    }
+                    BluetoothProfile.STATE_DISCONNECTED -> {
+                        gatt.close()
+                        onGattDisconnected()
+                        updateMessage(String.format("Disconnected %s", devAddr), false)
+                    }
+                }
+            } else {
+                gatt.close()
+                onGattDisconnected()
+                updateMessage(
+                    String.format(Locale.ENGLISH, "Disconnect %s, status=%d", devAddr, status),
+                    false
+                )
+            }
+        }
+
+        override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
+            Log.d(TAG, String.format(Locale.ENGLISH, "onMtuChanged status=%d, mtu=%d", status, mtu))
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                updateMessage(
+                    String.format(Locale.ENGLISH, "Set mtu complete, mtu=%d ", mtu),
+                    false
+                )
+            } else {
+                blufiClient?.setPostPackageLengthLimit(20)
+                updateMessage(
+                    String.format(
+                        Locale.ENGLISH,
+                        "Set mtu failed, mtu=%d, status=%d",
+                        mtu,
+                        status
+                    ), false
+                )
+            }
+            onGattServiceCharacteristicDiscovered()
+        }
+
+        @SuppressLint("MissingPermission")
+        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+            Log.d(TAG, String.format(Locale.ENGLISH, "onServicesDiscovered status=%d", status))
+            if (status != BluetoothGatt.GATT_SUCCESS) {
+                gatt.disconnect()
+                updateMessage(
+                    String.format(
+                        Locale.ENGLISH,
+                        "Discover services error status %d",
+                        status
+                    ), false
+                )
+            }
+        }
+
+        override fun onDescriptorWrite(
+            gatt: BluetoothGatt,
+            descriptor: BluetoothGattDescriptor,
+            status: Int
+        ) {
+            Log.d(TAG, String.format(Locale.ENGLISH, "onDescriptorWrite status=%d", status))
+            if (descriptor.uuid == BlufiParameter.UUID_NOTIFICATION_DESCRIPTOR && descriptor.characteristic.uuid == BlufiParameter.UUID_NOTIFICATION_CHARACTERISTIC) {
+                val msg = String.format(
+                    Locale.ENGLISH, "Set notification enable %s",
+                    if (status == BluetoothGatt.GATT_SUCCESS) " complete" else " failed"
+                )
+                updateMessage(msg, false)
+            }
+        }
+
+        @SuppressLint("MissingPermission")
+        override fun onCharacteristicWrite(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic,
+            status: Int
+        ) {
+            if (status != BluetoothGatt.GATT_SUCCESS) {
+                gatt.disconnect()
+                updateMessage(
+                    String.format(Locale.ENGLISH, "WriteChar error status %d", status),
+                    false
+                )
+            }
+        }
+    }
+
+
+    private inner class BlufiCallbackMain : BlufiCallback() {
+        @SuppressLint("MissingPermission")
+        override fun onGattPrepared(
+            client: BlufiClient,
+            gatt: BluetoothGatt,
+            service: BluetoothGattService?,
+            writeChar: BluetoothGattCharacteristic?,
+            notifyChar: BluetoothGattCharacteristic?
+        ) {
+            if (service == null) {
+                Log.w(TAG, "Discover service failed")
+                gatt.disconnect()
+                updateMessage("Discover service failed", false)
+                return
+            }
+            if (writeChar == null) {
+                Log.w(TAG, "Get write characteristic failed")
+                gatt.disconnect()
+                updateMessage("Get write characteristic failed", false)
+                return
+            }
+            if (notifyChar == null) {
+                Log.w(TAG, "Get notification characteristic failed")
+                gatt.disconnect()
+                updateMessage("Get notification characteristic failed", false)
+                return
+            }
+            updateMessage("Discover service and characteristics success", false)
+            val mtu: Int = DEFAULT_MTU_LENGTH
+            Log.d(TAG, "Request MTU $mtu")
+            val requestMtu = gatt.requestMtu(mtu)
+            if (!requestMtu) {
+                Log.w(TAG, "Request mtu failed")
+                updateMessage(String.format(Locale.ENGLISH, "Request mtu %d failed", mtu), false)
+                onGattServiceCharacteristicDiscovered()
+            }
+        }
+
+        override fun onNegotiateSecurityResult(client: BlufiClient, status: Int) {
+            if (status == STATUS_SUCCESS) {
+                updateMessage("Negotiate security complete", false)
+            } else {
+                updateMessage("Negotiate security failed， code=$status", false)
+            }
+        }
+
+        override fun onPostConfigureParams(client: BlufiClient, status: Int) {
+            if (status == STATUS_SUCCESS) {
+                updateMessage("Post configure params complete", false)
+            } else {
+                updateMessage("Post configure params failed, code=$status", false)
+            }
+        }
+
+        override fun onDeviceStatusResponse(
+            client: BlufiClient,
+            status: Int,
+            response: BlufiStatusResponse
+        ) {
+            if (status == STATUS_SUCCESS) {
+                updateMessage(
+                    String.format(
+                        "Receive device status response:\n%s",
+                        response.generateValidInfo()
+                    ),
+                    true
+                )
+            } else {
+                updateMessage("Device status response error, code=$status", false)
+            }
+        }
+
+        override fun onDeviceScanResult(
+            client: BlufiClient,
+            status: Int,
+            results: List<BlufiScanResult>
+        ) {
+            if (status == STATUS_SUCCESS) {
+                val msg = StringBuilder()
+                msg.append("Receive device scan result:\n")
+                for (scanResult in results) {
+                    msg.append(scanResult.toString()).append("\n")
+                }
+                updateMessage(msg.toString(), true)
+            } else {
+                updateMessage("Device scan result error, code=$status", false)
+            }
+        }
+
+        override fun onDeviceVersionResponse(
+            client: BlufiClient,
+            status: Int,
+            response: BlufiVersionResponse
+        ) {
+            if (status == STATUS_SUCCESS) {
+                updateMessage(
+                    String.format("Receive device version: %s", response.versionString),
+                    true
+                )
+            } else {
+                updateMessage("Device version error, code=$status", false)
+            }
+        }
+
+        override fun onPostCustomDataResult(client: BlufiClient, status: Int, data: ByteArray) {
+            val dataStr = String(data)
+            val format = "Post data %s %s"
+            if (status == STATUS_SUCCESS) {
+                updateMessage(String.format(format, dataStr, "complete"), false)
+            } else {
+                updateMessage(String.format(format, dataStr, "failed"), false)
+            }
+        }
+
+        override fun onReceiveCustomData(client: BlufiClient, status: Int, data: ByteArray) {
+            if (status == STATUS_SUCCESS) {
+                val customStr = String(data)
+                updateMessage(String.format("Receive custom data:\n%s", customStr), true)
+            } else {
+                updateMessage("Receive custom data error, code=$status", false)
+            }
+        }
+
+        override fun onError(client: BlufiClient, errCode: Int) {
+            updateMessage(String.format(Locale.ENGLISH, "Receive error code %d", errCode), false)
+            if (errCode == CODE_GATT_WRITE_TIMEOUT) {
+                updateMessage("Gatt write timeout", false)
+                client.close()
+                onGattDisconnected()
+                // FIXME what should we do with WIFI SCAN FAILED not resolved?
+//            } else if (errCode == BlufiCallback.CODE_WIFI_SCAN_FAIL) {
+//                updateMessage("Scan failed, please retry later", false)
+//                mContent.blufiDeviceScan.setEnabled(true)
+            }
+        }
+    }
+
+    fun updateMessage(message: String, isNotification: Boolean) {
+
     }
 }

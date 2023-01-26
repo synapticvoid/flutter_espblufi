@@ -24,4 +24,16 @@ class MethodChannelEspblufi extends EspblufiPlatform {
   Future<void> startScan() async {
     await methodChannel.invokeMethod('startScan');
   }
+
+  @override
+  Future<void> connect(String macAddress) async {
+    await methodChannel.invokeMethod("connect", {
+      "macAddress": macAddress,
+    });
+  }
+
+  @override
+  Future<void> disconnect() async {
+    await methodChannel.invokeMethod('disconnect');
+  }
 }
