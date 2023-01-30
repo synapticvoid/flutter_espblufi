@@ -81,23 +81,27 @@ class _MyAppState extends State<MyApp> {
               },
             ),
             Expanded(
-              child: StreamBuilder<String>(
+              child: StreamBuilder<List<BLEDevice>>(
                   stream: _espblufiPlugin.scanResults(),
                   builder: (context, snapshot) {
-                    final list = [snapshot.data ?? ""];
+                    print("snapshot=$snapshot, snapshot.data=${snapshot.data}");
+                    final List<BLEDevice> list = snapshot.data ?? [];
+                    // if (snapshot.data != null) {
+                    //   list.add(snapshot.data!);
+                    // }
 
                     return ListView.builder(
                         itemCount: list.length,
                         itemBuilder: (context, index) {
-                          final item = list[index];
+                          final device = list[index];
                           return Column(
                             children: [
-                              Text(item),
+                              Text(device.name),
                               Row(
                                 children: [
                                   ElevatedButton(
                                       onPressed: () {
-                                        _espblufiPlugin.connect(item);
+                                        _espblufiPlugin.connect(device.macAddress);
                                       },
                                       child: Text("Connect")),
                                   ElevatedButton(
@@ -105,7 +109,7 @@ class _MyAppState extends State<MyApp> {
                                         String version =
                                             await _espblufiPlugin.requestDeviceVersion();
                                         setState(() {
-                                          deviceMessage = "Connected to $item, version=$version";
+                                          deviceMessage = "Connected to $device, version=$version";
                                         });
                                       },
                                       child: Text("Version")),

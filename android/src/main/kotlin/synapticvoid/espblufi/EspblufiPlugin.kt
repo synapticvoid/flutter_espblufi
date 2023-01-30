@@ -211,7 +211,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 //                "onScanResult: name=${name}, mac=${device.address}, type=${device.type}"
 //            )
 
-            if (name == null || !name.startsWith("BLUFI")) {
+            if (name == null || !name.startsWith("BLUFI") || leDevices.contains(device)) {
 //                Log.d(TAG, "onScanResult: invalid name")
                 return
             }
@@ -219,8 +219,13 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             Log.i(TAG, "onScanResult: Added device ${device.name}")
             leDevices.add(device)
 
-            // FIXME Proper object and list !
-            scanResultsSink?.success(device.address)
+            val list = leDevices.map {
+                hashMapOf(
+                    "macAddress" to it.address,
+                    "name" to it.name,
+                )
+            }
+            scanResultsSink?.success(list)
         }
     }
 

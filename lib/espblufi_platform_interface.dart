@@ -1,3 +1,4 @@
+import 'package:espblufi/espblufi.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'espblufi_method_channel.dart';
@@ -27,7 +28,7 @@ abstract class EspblufiPlatform extends PlatformInterface {
 
   Future<void> startScan();
 
-  Stream<String> get scanResults;
+  Stream<List<BLEDevice>> get scanResults;
 
   Stream<String> get state;
 
