@@ -10,7 +10,7 @@ class MethodChannelEspblufi extends EspblufiPlatform {
   @visibleForTesting
   final methodChannel = const MethodChannel('espblufi');
   final scanResultsChannel = const EventChannel("espblufi/scanResults");
-  final stateChannel = const EventChannel("espblufi/state");
+  final stateChannel = const EventChannel("espblufi/events");
 
   @override
   Stream<List<BLEDevice>> get scanResults => scanResultsChannel
@@ -21,7 +21,11 @@ class MethodChannelEspblufi extends EspblufiPlatform {
           .toList());
 
   @override
-  Stream<String> get state => stateChannel.receiveBroadcastStream().map((event) => event as String);
+  Stream<BlufiEvent> get events => stateChannel.receiveBroadcastStream().distinct().map((event) {
+        final map = Map<String, dynamic>.from(event);
+        print("Received event. data=$map");
+        return mapToBlufiEvent(map);
+      });
 
   @override
   Future<String?> getPlatformVersion() {

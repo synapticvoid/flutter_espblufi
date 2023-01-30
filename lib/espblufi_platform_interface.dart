@@ -30,7 +30,7 @@ abstract class EspblufiPlatform extends PlatformInterface {
 
   Stream<List<BLEDevice>> get scanResults;
 
-  Stream<String> get state;
+  Stream<BlufiEvent> get events;
 
   Future<void> connect(String macAddress);
 

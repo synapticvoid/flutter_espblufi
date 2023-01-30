@@ -46,7 +46,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
     private var resultDeviceVersion: Result? = null
     private var scanResultsSink: EventChannel.EventSink? = null
-    private var stateSink: EventChannel.EventSink? = null
+    private var eventsSink: EventChannel.EventSink? = null
 
     /// The MethodChannel that will the communication between Flutter and native Android
     ///
@@ -63,7 +63,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
     private lateinit var bluetoothLeScanner: BluetoothLeScanner
     private var scanning = false
     private lateinit var handler: Handler
-    private val leDevices = mutableListOf<BluetoothDevice>()
+    private val leDevices = mutableListOf<BLEDevice>()
 
     // Blufi
     private var device: BluetoothDevice? = null
@@ -86,15 +86,14 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             }
         })
 
-        stateChannel =
-            EventChannel(flutterPluginBinding.binaryMessenger, "espblufi/state")
+        stateChannel = EventChannel(flutterPluginBinding.binaryMessenger, "espblufi/events")
         stateChannel.setStreamHandler(object : EventChannel.StreamHandler {
             override fun onListen(obj: Any?, sink: EventChannel.EventSink?) {
-                stateSink = sink
+                eventsSink = sink
             }
 
             override fun onCancel(obj: Any?) {
-                stateSink = null
+                eventsSink = null
             }
         })
 
@@ -149,7 +148,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
     }
 
     private fun connect(macAddress: String) {
-        device = leDevices.first { device -> device.address == macAddress }
+        device = leDevices.first { it.device.address == macAddress }.device
         if (blufiClient != null) {
             blufiClient?.close()
             blufiClient = null
@@ -211,21 +210,30 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 //                "onScanResult: name=${name}, mac=${device.address}, type=${device.type}"
 //            )
 
-            if (name == null || !name.startsWith("BLUFI") || leDevices.contains(device)) {
+            if (name == null || !name.startsWith("BLUFI")) {
 //                Log.d(TAG, "onScanResult: invalid name")
                 return
             }
 
+            // Update list with new device
+            val bleDevice = BLEDevice(device, result.rssi)
             Log.i(TAG, "onScanResult: Added device ${device.name}")
-            leDevices.add(device)
-
-            val list = leDevices.map {
-                hashMapOf(
-                    "macAddress" to it.address,
-                    "name" to it.name,
-                )
+            val index = leDevices.indexOfFirst { it.device.address == bleDevice.device.address }
+            if (index >= 0) {
+                leDevices[index] = bleDevice
+            } else {
+                leDevices.add(bleDevice)
             }
-            scanResultsSink?.success(list)
+            leDevices.sortWith(compareBy { it.rssi })
+
+            // Send result
+            scanResultsSink?.success(leDevices.map {
+                hashMapOf(
+                    "macAddress" to it.device.address,
+                    "name" to it.device.name,
+                    "rssi" to it.rssi,
+                )
+            })
         }
     }
 
@@ -239,14 +247,11 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         }
 
         if (ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_FINE_LOCATION
+                context, Manifest.permission.ACCESS_FINE_LOCATION
             ) != PackageManager.PERMISSION_GRANTED
         ) {
             ActivityCompat.requestPermissions(
-                binding.activity,
-                permissions.toTypedArray(),
-                REQUEST_PERMISSION
+                binding.activity, permissions.toTypedArray(), REQUEST_PERMISSION
             )
             return
         }
@@ -267,9 +272,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
     }
 
     override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
+        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
     ): Boolean {
         if (requestCode != REQUEST_PERMISSION) {
             return false
@@ -306,10 +309,12 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
             val devAddr = gatt.device.address
             Log.d(
-                TAG,
-                String.format(
-                    Locale.ENGLISH, "onConnectionStateChange addr=%s, status=%d, newState=%d",
-                    devAddr, status, newState
+                TAG, String.format(
+                    Locale.ENGLISH,
+                    "onConnectionStateChange addr=%s, status=%d, newState=%d",
+                    devAddr,
+                    status,
+                    newState
                 )
             )
             if (status == BluetoothGatt.GATT_SUCCESS) {
@@ -317,11 +322,13 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     BluetoothProfile.STATE_CONNECTED -> {
                         onGattConnected()
                         updateMessage(String.format("Connected %s", devAddr), false)
+                        emitBlufiEvent(BlufiEvent.ConnectionState(true))
                     }
                     BluetoothProfile.STATE_DISCONNECTED -> {
                         gatt.close()
                         onGattDisconnected()
                         updateMessage(String.format("Disconnected %s", devAddr), false)
+                        emitBlufiEvent(BlufiEvent.ConnectionState(false))
                     }
                 }
             } else {
@@ -338,17 +345,14 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             Log.d(TAG, String.format(Locale.ENGLISH, "onMtuChanged status=%d, mtu=%d", status, mtu))
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 updateMessage(
-                    String.format(Locale.ENGLISH, "Set mtu complete, mtu=%d ", mtu),
-                    false
+                    String.format(Locale.ENGLISH, "Set mtu complete, mtu=%d ", mtu), false
                 )
+
             } else {
                 blufiClient?.setPostPackageLengthLimit(20)
                 updateMessage(
                     String.format(
-                        Locale.ENGLISH,
-                        "Set mtu failed, mtu=%d, status=%d",
-                        mtu,
-                        status
+                        Locale.ENGLISH, "Set mtu failed, mtu=%d, status=%d", mtu, status
                     ), false
                 )
             }
@@ -362,23 +366,20 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 gatt.disconnect()
                 updateMessage(
                     String.format(
-                        Locale.ENGLISH,
-                        "Discover services error status %d",
-                        status
+                        Locale.ENGLISH, "Discover services error status %d", status
                     ), false
                 )
             }
         }
 
         override fun onDescriptorWrite(
-            gatt: BluetoothGatt,
-            descriptor: BluetoothGattDescriptor,
-            status: Int
+            gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int
         ) {
             Log.d(TAG, String.format(Locale.ENGLISH, "onDescriptorWrite status=%d", status))
             if (descriptor.uuid == BlufiParameter.UUID_NOTIFICATION_DESCRIPTOR && descriptor.characteristic.uuid == BlufiParameter.UUID_NOTIFICATION_CHARACTERISTIC) {
                 val msg = String.format(
-                    Locale.ENGLISH, "Set notification enable %s",
+                    Locale.ENGLISH,
+                    "Set notification enable %s",
                     if (status == BluetoothGatt.GATT_SUCCESS) " complete" else " failed"
                 )
                 updateMessage(msg, false)
@@ -387,15 +388,12 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
         @SuppressLint("MissingPermission")
         override fun onCharacteristicWrite(
-            gatt: BluetoothGatt,
-            characteristic: BluetoothGattCharacteristic,
-            status: Int
+            gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int
         ) {
             if (status != BluetoothGatt.GATT_SUCCESS) {
                 gatt.disconnect()
                 updateMessage(
-                    String.format(Locale.ENGLISH, "WriteChar error status %d", status),
-                    false
+                    String.format(Locale.ENGLISH, "WriteChar error status %d", status), false
                 )
             }
         }
@@ -457,17 +455,13 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         }
 
         override fun onDeviceStatusResponse(
-            client: BlufiClient,
-            status: Int,
-            response: BlufiStatusResponse
+            client: BlufiClient, status: Int, response: BlufiStatusResponse
         ) {
             if (status == STATUS_SUCCESS) {
                 updateMessage(
                     String.format(
-                        "Receive device status response:\n%s",
-                        response.generateValidInfo()
-                    ),
-                    true
+                        "Receive device status response:\n%s", response.generateValidInfo()
+                    ), true
                 )
             } else {
                 updateMessage("Device status response error, code=$status", false)
@@ -475,9 +469,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         }
 
         override fun onDeviceScanResult(
-            client: BlufiClient,
-            status: Int,
-            results: List<BlufiScanResult>
+            client: BlufiClient, status: Int, results: List<BlufiScanResult>
         ) {
             if (status == STATUS_SUCCESS) {
                 val msg = StringBuilder()
@@ -492,16 +484,13 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         }
 
         override fun onDeviceVersionResponse(
-            client: BlufiClient,
-            status: Int,
-            response: BlufiVersionResponse
+            client: BlufiClient, status: Int, response: BlufiVersionResponse
         ) {
             when (status) {
                 STATUS_SUCCESS -> {
                     resultDeviceVersion?.success(response.versionString)
                     updateMessage(
-                        String.format("Receive device version: %s", response.versionString),
-                        true
+                        String.format("Receive device version: %s", response.versionString), true
                     )
                 }
                 else -> {
@@ -526,7 +515,8 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             if (status == STATUS_SUCCESS) {
                 val customStr = String(data)
                 updateMessage(String.format("Receive custom data:\n%s", customStr), true)
-                stateSink?.success(customStr)
+                emitBlufiEvent(BlufiEvent.CustomDataReceived(data = customStr))
+//                eventsSink?.success(customStr)
             } else {
                 updateMessage("Receive custom data error, code=$status", false)
             }
@@ -548,5 +538,48 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
     fun updateMessage(message: String, isNotification: Boolean) {
         Log.d(TAG, message)
+    }
+
+    fun emitBlufiEvent(event: BlufiEvent) {
+        val data = when (event) {
+            is BlufiEvent.ConnectionState -> hashMapOf(
+                "type" to BlufiEvent.TYPE_CONNECTION_STATE,
+                "connected" to event.connected,
+            )
+            is BlufiEvent.CustomDataReceived -> hashMapOf(
+                "type" to BlufiEvent.TYPE_CUSTOM_DATA,
+                "data" to event.data,
+            )
+        }
+
+        Log.d(TAG, "emitBlufiEvent: data=$data")
+
+        if (Looper.getMainLooper().isCurrentThread) {
+            eventsSink?.success(data)
+        } else {
+            handler.post {
+                eventsSink?.success(data)
+            }
+        }
+    }
+
+}
+
+sealed class BlufiEvent {
+    data class ConnectionState(
+        val connected: Boolean,
+        val errorCode: Int = 0,
+        val errorMessage: String = "",
+    ) : BlufiEvent()
+
+    data class CustomDataReceived(
+        val data: String,
+        val errorCode: Int = 0,
+        val errorMessage: String = "",
+    ) : BlufiEvent()
+
+    companion object {
+        const val TYPE_CONNECTION_STATE = 1
+        const val TYPE_CUSTOM_DATA = 2
     }
 }
