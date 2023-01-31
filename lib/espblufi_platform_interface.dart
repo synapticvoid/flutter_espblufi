@@ -24,9 +24,7 @@ abstract class EspblufiPlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  Future<String?> getPlatformVersion();
-
-  Future<void> startScan();
+  Future<void> startScan({String? filter, Duration timeout = defaultScanDuration});
 
   Stream<List<BLEDevice>> get scanResults;
 

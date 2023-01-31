@@ -28,13 +28,11 @@ class MethodChannelEspblufi extends EspblufiPlatform {
       });
 
   @override
-  Future<String?> getPlatformVersion() {
-    return methodChannel.invokeMethod<String>('getPlatformVersion');
-  }
-
-  @override
-  Future<void> startScan() {
-    return methodChannel.invokeMethod('startScan');
+  Future<void> startScan({String? filter, Duration timeout = defaultScanDuration}) {
+    return methodChannel.invokeMethod('startScan', {
+      "filter": filter,
+      "timeout": timeout.inMilliseconds,
+    });
   }
 
   @override

@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 
 import 'espblufi_platform_interface.dart';
 
+const Duration defaultScanDuration = Duration(seconds: 5);
+
 class BLEDevice {
   final String macAddress;
   final String name;
@@ -23,19 +25,19 @@ class BlufiEvent {
 
   final int type;
 
-  BlufiEvent(this.type);
+  const BlufiEvent(this.type);
 }
 
 class BlufiEventConnectionState extends BlufiEvent {
   final bool connected;
 
-  BlufiEventConnectionState(this.connected) : super(BlufiEvent.typeConnectionState);
+  const BlufiEventConnectionState(this.connected) : super(BlufiEvent.typeConnectionState);
 }
 
 class BlufiEventCustomDataReceived extends BlufiEvent {
   final String data;
 
-  BlufiEventCustomDataReceived(this.data) : super(BlufiEvent.typeCustomData);
+  const BlufiEventCustomDataReceived(this.data) : super(BlufiEvent.typeCustomData);
 }
 
 BlufiEvent mapToBlufiEvent(Map<String, dynamic> map) {
@@ -54,10 +56,8 @@ class Espblufi {
 
   Stream<BlufiEvent> events() => EspblufiPlatform.instance.events;
 
-  // FIXME Remove this test code
-  Future<String?> getPlatformVersion() => EspblufiPlatform.instance.getPlatformVersion();
-
-  Future<void> startScan() => EspblufiPlatform.instance.startScan();
+  Future<void> startScan({String? filter, Duration timeout = defaultScanDuration}) =>
+      EspblufiPlatform.instance.startScan(filter: filter, timeout: timeout);
 
   Future<void> connect(String macAddress) => EspblufiPlatform.instance.connect(macAddress);
 
