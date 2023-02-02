@@ -222,15 +222,10 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             leDevices.sortWith(compareBy { it.rssi })
 
             // Send result
-            scanResultsSink?.success(leDevices.map {
-                hashMapOf(
-                    "macAddress" to it.device.address,
-                    "name" to it.device.name,
-                    "rssi" to it.rssi,
-                )
-            })
+            emitBLEScanEvent(BLEScanEvent.InProgress(devices = leDevices))
         }
     }
+
 
     private fun startBLEScan() {
         val permissions = mutableListOf(
@@ -297,6 +292,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
         scanning = false
         bluetoothLeScanner.stopScan(leScanCallback)
+        emitBLEScanEvent(BLEScanEvent.Idle)
     }
 
     override fun onRequestPermissionsResult(
@@ -570,17 +566,43 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         Log.d(TAG, message)
     }
 
-    fun emitBlufiEvent(event: BlufiEvent) {
-        if (event is BlufiEvent.Error) {
-            Log.d(TAG, "emitBlufiEvent: error, error=$event")
-            executeOnMainThread {
-                eventsSink?.error(
-                    event.errorCode.toString(), event.message, null
+    @SuppressLint("MissingPermission")
+    private fun emitBLEScanEvent(event: BLEScanEvent) {
+        when (event) {
+            BLEScanEvent.Idle -> {
+                val data = hashMapOf(
+                    "type" to BLEScanEvent.TYPE_IDLE,
                 )
+                executeOnMainThread { scanResultsSink?.success(data) }
             }
-            return
+            is BLEScanEvent.InProgress -> {
+                val devices = leDevices.map {
+                    hashMapOf(
+                        "macAddress" to it.device.address,
+                        "name" to it.device.name,
+                        "rssi" to it.rssi,
+                    )
+                }
+
+                val data = hashMapOf(
+                    "type" to BLEScanEvent.TYPE_IN_PROGRESS,
+                    "devices" to devices,
+                )
+                executeOnMainThread { scanResultsSink?.success(data) }
+            }
+            is BLEScanEvent.Error -> {
+                executeOnMainThread {
+                    eventsSink?.error(
+                        event.errorCode.toString(), event.message, null
+                    )
+                }
+            }
         }
 
+
+    }
+
+    fun emitBlufiEvent(event: BlufiEvent) {
         val data = when (event) {
             is BlufiEvent.ConnectionState -> hashMapOf(
                 "type" to BlufiEvent.TYPE_CONNECTION_STATE,
@@ -590,7 +612,15 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 "type" to BlufiEvent.TYPE_CUSTOM_DATA,
                 "data" to event.data,
             )
-            is BlufiEvent.Error -> TODO()
+            is BlufiEvent.Error -> {
+                Log.d(TAG, "emitBlufiEvent: error, error=$event")
+                executeOnMainThread {
+                    eventsSink?.error(
+                        event.errorCode.toString(), event.message, null
+                    )
+                }
+                return
+            }
         }
 
         Log.d(TAG, "emitBlufiEvent: success, data=$data")

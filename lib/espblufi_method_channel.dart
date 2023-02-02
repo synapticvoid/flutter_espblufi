@@ -1,4 +1,6 @@
 import 'package:espblufi/espblufi.dart';
+import 'package:espblufi/src/mappers.dart';
+import 'package:espblufi/src/models.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -13,12 +15,17 @@ class MethodChannelEspblufi extends EspblufiPlatform {
   final stateChannel = const EventChannel("espblufi/events");
 
   @override
-  Stream<List<BLEDevice>> get scanResults => scanResultsChannel
+  Stream<BLEScanEvent> get scanResults => scanResultsChannel
       .receiveBroadcastStream()
       .distinct()
-      .map((event) => List<dynamic>.from(event)
-          .map((e) => BLEDevice.fromMap(Map<String, dynamic>.from(e)))
-          .toList());
+      .map((event) {
+    final map = Map<String, dynamic>.from(event);
+    print("Received event. data=$map");
+    return mapToBLEScanEvent(map);
+    // return List<dynamic>.from(event)
+        //   .map((e) => BLEDevice.fromMap(Map<String, dynamic>.from(e)))
+        //   .toList();
+      });
 
   @override
   Stream<BlufiEvent> get events => stateChannel.receiveBroadcastStream().distinct().map((event) {

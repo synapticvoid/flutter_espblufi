@@ -1,8 +1,5 @@
-import 'dart:async';
-
 import 'package:espblufi/espblufi.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 void main() {
   runApp(const MyApp());
@@ -79,11 +76,17 @@ class _MyAppState extends State<MyApp> {
               },
             ),
             Expanded(
-              child: StreamBuilder<List<BLEDevice>>(
+              child: StreamBuilder<BLEScanEvent>(
                   stream: _espblufiPlugin.scanResults(),
                   builder: (context, snapshot) {
                     // print("snapshot=$snapshot, snapshot.data=${snapshot.data}");
-                    final List<BLEDevice> list = snapshot.data ?? [];
+                    final event = snapshot.data;
+
+                    List<BLEDevice> list = [];
+                    if (event is BLEScanEventInProgress) {
+                      list.addAll(event.devices);
+                    }
+
                     // if (snapshot.data != null) {
                     //   list.add(snapshot.data!);
                     // }
