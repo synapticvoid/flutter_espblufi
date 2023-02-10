@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:espblufi/espblufi.dart';
 import 'package:flutter/material.dart';
 
@@ -117,7 +120,10 @@ class _MyAppState extends State<MyApp> {
                                       child: Text("Version")),
                                   ElevatedButton(
                                       onPressed: () async {
-                                        await _espblufiPlugin.postCustomData("v");
+                                        final data = "version";
+                                        final encoded = Uint8List.fromList(utf8.encode(data));
+                                        print("data=$data. encoded=$encoded");
+                                        await _espblufiPlugin.postCustomData(encoded);
                                       },
                                       child: Text("Custom v")),
                                 ],

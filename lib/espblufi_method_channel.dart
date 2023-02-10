@@ -60,7 +60,7 @@ class MethodChannelEspblufi extends EspblufiPlatform {
   }
 
   @override
-  Future<void> postCustomData(String data) {
+  Future<void> postCustomData(Uint8List data) {
     return methodChannel.invokeMethod('postCustomData', {
       "data": data,
     });

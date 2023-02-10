@@ -52,7 +52,7 @@ class BlufiEventConnectionState extends BlufiEvent {
 }
 
 class BlufiEventCustomDataReceived extends BlufiEvent {
-  final String data;
+  final Uint8List data;
 
   const BlufiEventCustomDataReceived(this.data) : super(BlufiEvent.typeCustomData);
 }

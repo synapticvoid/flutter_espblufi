@@ -2,6 +2,8 @@ library espblufi;
 
 export 'src/models.dart';
 
+import 'dart:typed_data';
+
 import 'espblufi_platform_interface.dart';
 import 'src/models.dart';
 
@@ -17,7 +19,7 @@ class Espblufi {
 
   Future<void> connect(String macAddress) => EspblufiPlatform.instance.connect(macAddress);
 
-  Future<void> postCustomData(String data) => EspblufiPlatform.instance.postCustomData(data);
+  Future<void> postCustomData(Uint8List data) => EspblufiPlatform.instance.postCustomData(data);
 
   Future<void> disconnect() => EspblufiPlatform.instance.disconnect();
 

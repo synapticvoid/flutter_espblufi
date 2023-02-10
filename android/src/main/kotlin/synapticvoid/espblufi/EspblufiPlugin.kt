@@ -131,7 +131,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             requestDeviceVersion(result)
         }
         "postCustomData" -> {
-            val data = call.argument<String?>("data") ?: ""
+            val data = call.argument<ByteArray?>("data") ?: byteArrayOf()
             postCustomData(data)
             result.success(true)
         }
@@ -161,13 +161,13 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         stopBLEScan()
     }
 
-    private fun postCustomData(data: String) {
-        Log.i(TAG, "postCustomData: data=$data")
+    private fun postCustomData(data: ByteArray) {
+        Log.i(TAG, "postCustomData: size=${data.size}, data=${data.contentToString()}")
         if (data.isEmpty()) {
             return
         }
 
-        blufiClient?.postCustomData(data.toByteArray())
+        blufiClient?.postCustomData(data)
     }
 
     private fun requestDeviceVersion(result: Result) {
@@ -540,7 +540,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             if (status == STATUS_SUCCESS) {
                 val customStr = String(data)
                 updateMessage(String.format("Receive custom data:\n%s", customStr), true)
-                emitBlufiEvent(BlufiEvent.CustomDataReceived(data = customStr))
+                emitBlufiEvent(BlufiEvent.CustomDataReceived(data = data))
             } else {
                 val message = "Receive custom data error, code=$status"
                 updateMessage(message, false)

@@ -24,15 +24,22 @@ sealed class BlufiEvent {
 
     data class Error(val eventType: Int, val errorCode: Int, val message: String) : BlufiEvent()
 
-    data class ConnectionState(
-        val connected: Boolean,
-        val errorCode: Int = 0,
-        val errorMessage: String = "",
-    ) : BlufiEvent()
+    data class ConnectionState(val connected: Boolean) : BlufiEvent()
 
-    data class CustomDataReceived(
-        val data: String,
-        val errorCode: Int = 0,
-        val errorMessage: String = "",
-    ) : BlufiEvent()
+    data class CustomDataReceived(val data: ByteArray) : BlufiEvent() {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as CustomDataReceived
+
+            if (!data.contentEquals(other.data)) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            return data.contentHashCode()
+        }
+    }
 }
