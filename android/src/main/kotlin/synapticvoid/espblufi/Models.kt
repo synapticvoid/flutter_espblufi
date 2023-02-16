@@ -16,6 +16,7 @@ sealed class BLEScanEvent {
     data class Error(val eventType: Int, val errorCode: Int, val message: String) : BLEScanEvent()
 }
 
+
 sealed class BlufiEvent {
     companion object {
         const val TYPE_CONNECTION_STATE = 1
@@ -25,6 +26,7 @@ sealed class BlufiEvent {
     data class Error(val eventType: Int, val errorCode: Int, val message: String) : BlufiEvent()
 
     data class ConnectionState(val connected: Boolean) : BlufiEvent()
+
 
     data class CustomDataReceived(val data: ByteArray) : BlufiEvent() {
         override fun equals(other: Any?): Boolean {

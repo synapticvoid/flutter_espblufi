@@ -51,6 +51,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
     PluginRegistry.RequestPermissionsResultListener {
 
     private var resultDeviceVersion: Result? = null
+    private var resultDeviceStatus: Result? = null
     private var scanResultsSink: EventChannel.EventSink? = null
     private var eventsSink: EventChannel.EventSink? = null
 
@@ -130,6 +131,9 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         "requestDeviceVersion" -> {
             requestDeviceVersion(result)
         }
+        "requestDeviceStatus" -> {
+            requestDeviceStatus(result)
+        }
         "postCustomData" -> {
             val data = call.argument<ByteArray?>("data") ?: byteArrayOf()
             postCustomData(data)
@@ -174,6 +178,12 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         this.resultDeviceVersion = result
         blufiClient?.requestDeviceVersion()
     }
+
+    private fun requestDeviceStatus(result: Result) {
+        this.resultDeviceStatus = result
+        blufiClient?.requestDeviceStatus()
+    }
+
 
     private fun connect(macAddress: String) {
         device = leDevices.first { it.device.address == macAddress }.device
@@ -488,8 +498,11 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                         "Receive device status response:\n%s", response.generateValidInfo()
                     ), true
                 )
+                sendDeviceStatus(response)
             } else {
-                updateMessage("Device status response error, code=$status", false)
+                val message = "Device status response error, code=$status"
+                updateMessage(message, false)
+                resultDeviceStatus?.error("device_version", message, null)
             }
         }
 
@@ -560,6 +573,15 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 //                mContent.blufiDeviceScan.setEnabled(true)
             }
         }
+    }
+
+    private fun sendDeviceStatus(response: BlufiStatusResponse) {
+        resultDeviceStatus?.success(
+            hashMapOf<String, Any?>(
+                "staSSID" to response.staSSID,
+                "staPassword" to response.staPassword,
+            )
+        )
     }
 
     fun updateMessage(message: String, isNotification: Boolean) {

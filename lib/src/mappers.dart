@@ -1,4 +1,3 @@
-
 import 'package:espblufi/src/models.dart';
 
 BlufiEvent mapToBlufiEvent(Map<String, dynamic> map) {
@@ -10,6 +9,13 @@ BlufiEvent mapToBlufiEvent(Map<String, dynamic> map) {
     default:
       throw Exception("Unhandled Blufi event type=${map['type']}");
   }
+}
+
+DeviceStatus mapToDeviceStatus(Map<String, dynamic> map) {
+  return DeviceStatus(
+    map["staSSID"] ?? "",
+    map["staPassword"] ?? "",
+  );
 }
 
 BLEScanEvent mapToBLEScanEvent(Map<String, dynamic> map) {

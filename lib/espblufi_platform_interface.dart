@@ -39,5 +39,7 @@ abstract class EspblufiPlatform extends PlatformInterface {
 
   Future<String> requestDeviceVersion();
 
+  Future<DeviceStatus> requestDeviceStatus();
+
   Future<void> postCustomData(Uint8List data);
 }

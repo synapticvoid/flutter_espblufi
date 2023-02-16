@@ -18,6 +18,8 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   final _espblufiPlugin = Espblufi();
 
+  final List<BLEDevice> devices = [];
+
   String deviceMessage = "";
   final List<BlufiEvent> blufiEvents = [];
 
@@ -34,6 +36,7 @@ class _MyAppState extends State<MyApp> {
               children: [
                 ElevatedButton(
                     onPressed: () {
+                      devices.clear();
                       _espblufiPlugin.startScan(filter: "BLUFI");
                     },
                     child: Text("Scan")),
@@ -85,9 +88,11 @@ class _MyAppState extends State<MyApp> {
                     // print("snapshot=$snapshot, snapshot.data=${snapshot.data}");
                     final event = snapshot.data;
 
-                    List<BLEDevice> list = [];
                     if (event is BLEScanEventInProgress) {
-                      list.addAll(event.devices);
+                      for (final device in event.devices) {
+                        devices.removeWhere((element) => element.macAddress == device.macAddress);
+                      }
+                      devices.addAll(event.devices);
                     }
 
                     // if (snapshot.data != null) {
@@ -95,9 +100,9 @@ class _MyAppState extends State<MyApp> {
                     // }
 
                     return ListView.builder(
-                        itemCount: list.length,
+                        itemCount: devices.length,
                         itemBuilder: (context, index) {
-                          final device = list[index];
+                          final device = devices[index];
                           return Column(
                             children: [
                               Text(device.name),
@@ -120,7 +125,16 @@ class _MyAppState extends State<MyApp> {
                                       child: Text("Version")),
                                   ElevatedButton(
                                       onPressed: () async {
-                                        final data = "version";
+                                        DeviceStatus status =
+                                            await _espblufiPlugin.requestDeviceStatus();
+                                        setState(() {
+                                          deviceMessage = "Device status=$status";
+                                        });
+                                      },
+                                      child: Text("Status")),
+                                  ElevatedButton(
+                                      onPressed: () async {
+                                        final data = "Custom";
                                         final encoded = Uint8List.fromList(utf8.encode(data));
                                         print("data=$data. encoded=$encoded");
                                         await _espblufiPlugin.postCustomData(encoded);

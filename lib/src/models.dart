@@ -1,4 +1,3 @@
-
 import 'package:flutter/foundation.dart';
 
 @immutable
@@ -9,7 +8,8 @@ class BLEDevice {
 
   const BLEDevice(this.macAddress, this.name, this.rssi);
 
-  factory BLEDevice.fromMap(Map<String, dynamic> data) => BLEDevice(
+  factory BLEDevice.fromMap(Map<String, dynamic> data) =>
+      BLEDevice(
         data["macAddress"],
         data["name"],
         data["rssi"],
@@ -33,6 +33,19 @@ class BLEScanEventInProgress extends BLEScanEvent {
   final List<BLEDevice> devices;
 
   const BLEScanEventInProgress(this.devices) : super(BLEScanEvent.typeInProgress);
+}
+
+@immutable
+class DeviceStatus {
+  final String staSSID;
+  final String staPassword;
+
+  const DeviceStatus(this.staSSID, this.staPassword);
+
+  @override
+  String toString() {
+    return 'DeviceStatus{staSSID: $staSSID, staPassword: $staPassword}';
+  }
 }
 
 @immutable
