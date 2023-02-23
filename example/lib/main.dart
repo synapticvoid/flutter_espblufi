@@ -114,6 +114,10 @@ class _MyAppState extends State<MyApp> {
                                         _espblufiPlugin.connect(device.macAddress);
                                       },
                                       child: Text("Connect")),
+                                ],
+                              ),
+                              Row(
+                                children: [
                                   ElevatedButton(
                                       onPressed: () async {
                                         String version =

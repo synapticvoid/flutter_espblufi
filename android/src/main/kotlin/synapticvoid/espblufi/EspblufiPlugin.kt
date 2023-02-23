@@ -18,6 +18,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import blufi.espressif.BlufiCallback
 import blufi.espressif.BlufiClient
+import blufi.espressif.params.BlufiConfigureParams
 import blufi.espressif.params.BlufiParameter
 import blufi.espressif.response.BlufiScanResult
 import blufi.espressif.response.BlufiStatusResponse
@@ -52,6 +53,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
     private var resultDeviceVersion: Result? = null
     private var resultDeviceStatus: Result? = null
+    private var resultConfigureParameters: Result? = null
     private var scanResultsSink: EventChannel.EventSink? = null
     private var eventsSink: EventChannel.EventSink? = null
 
@@ -134,6 +136,14 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         "requestDeviceStatus" -> {
             requestDeviceStatus(result)
         }
+        "configureParameters" -> {
+            val params = BlufiConfigureParams()
+            params.opMode = call.argument<Int?>("opMode") ?: BlufiParameter.OP_MODE_NULL
+            params.staSSIDBytes = call.argument<String?>("staSSID")?.toByteArray()
+            params.staPassword = call.argument("staPassword")
+
+            configureParameters(result, params)
+        }
         "postCustomData" -> {
             val data = call.argument<ByteArray?>("data") ?: byteArrayOf()
             postCustomData(data)
@@ -143,6 +153,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             result.notImplemented()
         }
     }
+
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
@@ -182,6 +193,12 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
     private fun requestDeviceStatus(result: Result) {
         this.resultDeviceStatus = result
         blufiClient?.requestDeviceStatus()
+    }
+
+    private fun configureParameters(result: Result, params: BlufiConfigureParams) {
+        this.resultConfigureParameters = result
+        blufiClient?.configure(params)
+
     }
 
 
@@ -483,10 +500,15 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
         override fun onPostConfigureParams(client: BlufiClient, status: Int) {
             if (status == STATUS_SUCCESS) {
+                resultConfigureParameters?.success(status)
                 updateMessage("Post configure params complete", false)
             } else {
-                updateMessage("Post configure params failed, code=$status", false)
+                val message = "Post configure params failed, code=$status"
+                updateMessage(message, false)
+                resultConfigureParameters?.error("configure_parameters", message, null)
             }
+
+            resultConfigureParameters = null
         }
 
         override fun onDeviceStatusResponse(
@@ -504,6 +526,8 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 updateMessage(message, false)
                 resultDeviceStatus?.error("device_version", message, null)
             }
+
+            resultDeviceStatus = null
         }
 
         override fun onDeviceScanResult(
@@ -537,6 +561,8 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     updateMessage(message, false)
                 }
             }
+
+            resultDeviceVersion = null
         }
 
         override fun onPostCustomDataResult(client: BlufiClient, status: Int, data: ByteArray) {

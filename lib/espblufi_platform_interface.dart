@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:espblufi/espblufi.dart';
-import 'package:espblufi/src/models.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'espblufi_method_channel.dart';
@@ -39,7 +38,9 @@ abstract class EspblufiPlatform extends PlatformInterface {
 
   Future<String> requestDeviceVersion();
 
+  Future<void> postCustomData(Uint8List data);
+
   Future<DeviceStatus> requestDeviceStatus();
 
-  Future<void> postCustomData(Uint8List data);
+  Future<int> configureParameters(BlufiConfigureParams params);
 }

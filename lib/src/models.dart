@@ -8,8 +8,7 @@ class BLEDevice {
 
   const BLEDevice(this.macAddress, this.name, this.rssi);
 
-  factory BLEDevice.fromMap(Map<String, dynamic> data) =>
-      BLEDevice(
+  factory BLEDevice.fromMap(Map<String, dynamic> data) => BLEDevice(
         data["macAddress"],
         data["name"],
         data["rssi"],
@@ -68,4 +67,26 @@ class BlufiEventCustomDataReceived extends BlufiEvent {
   final Uint8List data;
 
   const BlufiEventCustomDataReceived(this.data) : super(BlufiEvent.typeCustomData);
+}
+
+class BlufiStatusCode {
+  static const statusSuccess = 0;
+  static const codeInvalidNotification = -1000;
+  static const codeCatchException = -1001;
+  static const codeWriteDataFailed = -1002;
+  static const codeInvalidData = -1003;
+
+  static const codeNegPostFailed = -2000;
+  static const codeNegErrDevKey = -2001;
+  static const codeNegErrSecurity = -2002;
+  static const codeNegErrSetSecurity = -2003;
+
+  static const codeConfInvalidOpmode = -3000;
+  static const codeConfErrSetOpmode = -3001;
+  static const codeConfErrPostSta = -3002;
+  static const codeConfErrPostSoftap = -3003;
+
+  static const codeGattWriteTimeout = -4000;
+
+  static const codeWifiScanFail = 11;
 }

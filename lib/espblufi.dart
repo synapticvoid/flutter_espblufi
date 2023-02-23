@@ -3,8 +3,10 @@ library espblufi;
 import 'dart:typed_data';
 
 import 'espblufi_platform_interface.dart';
+import 'src/blufi_params.dart';
 import 'src/models.dart';
 
+export 'src/blufi_params.dart';
 export 'src/models.dart';
 
 const Duration defaultScanDuration = Duration(seconds: 5);
@@ -26,4 +28,7 @@ class Espblufi {
   Future<String> requestDeviceVersion() => EspblufiPlatform.instance.requestDeviceVersion();
 
   Future<DeviceStatus> requestDeviceStatus() => EspblufiPlatform.instance.requestDeviceStatus();
+
+  Future<int> configureParameters(BlufiConfigureParams params) =>
+      EspblufiPlatform.instance.configureParameters(params);
 }
