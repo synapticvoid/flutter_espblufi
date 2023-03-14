@@ -11,12 +11,13 @@ BlufiEvent mapToBlufiEvent(Map<String, dynamic> map) {
   }
 }
 
-DeviceStatus mapToDeviceStatus(Map<String, dynamic> map) {
-  return DeviceStatus(
-    map["staSSID"] ?? "",
-    map["staPassword"] ?? "",
-  );
-}
+DeviceStatus mapToDeviceStatus(Map<String, dynamic> map) => DeviceStatus(
+      map["staSSID"] ?? "",
+      map["staPassword"] ?? "",
+    );
+
+List<WifiScanResult> mapToWifiScanResult(Iterable<Map<String, dynamic>> list) =>
+    list.map((e) => WifiScanResult(e["ssid"], e["rssi"])).toList();
 
 BLEScanEvent mapToBLEScanEvent(Map<String, dynamic> map) {
   switch (map["type"]) {

@@ -53,6 +53,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
     private var resultDeviceVersion: Result? = null
     private var resultDeviceStatus: Result? = null
+    private var resultWifiScan: Result? = null
     private var resultConfigureParameters: Result? = null
     private var scanResultsSink: EventChannel.EventSink? = null
     private var eventsSink: EventChannel.EventSink? = null
@@ -136,6 +137,9 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         "requestDeviceStatus" -> {
             requestDeviceStatus(result)
         }
+        "requestWifiScan" -> {
+            requestWifiScan(result)
+        }
         "configureParameters" -> {
             val params = BlufiConfigureParams()
             params.opMode = call.argument<Int?>("opMode") ?: BlufiParameter.OP_MODE_NULL
@@ -194,6 +198,12 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         this.resultDeviceStatus = result
         blufiClient?.requestDeviceStatus()
     }
+
+    private fun requestWifiScan(result: Result) {
+        this.resultWifiScan = result
+        blufiClient?.requestDeviceWifiScan()
+    }
+
 
     private fun configureParameters(result: Result, params: BlufiConfigureParams) {
         this.resultConfigureParameters = result
@@ -540,9 +550,14 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     msg.append(scanResult.toString()).append("\n")
                 }
                 updateMessage(msg.toString(), true)
+                sendWifiScanResult(results)
             } else {
-                updateMessage("Device scan result error, code=$status", false)
+                val message = "Device scan result error, code=$status"
+                updateMessage(message, false)
+                resultWifiScan?.error("wifi_scan", message, null)
             }
+
+            resultWifiScan = null
         }
 
         override fun onDeviceVersionResponse(
@@ -608,6 +623,16 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 "staPassword" to response.staPassword,
             )
         )
+    }
+
+    private fun sendWifiScanResult(results: List<BlufiScanResult>) {
+        val wifiScanResult = results.map {
+            hashMapOf<String, Any?>(
+                "ssid" to it.ssid,
+                "rssi" to it.rssi,
+            )
+        }
+        resultWifiScan?.success(wifiScanResult)
     }
 
     fun updateMessage(message: String, isNotification: Boolean) {

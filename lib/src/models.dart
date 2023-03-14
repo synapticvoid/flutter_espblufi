@@ -48,6 +48,19 @@ class DeviceStatus {
 }
 
 @immutable
+class WifiScanResult {
+  final String ssid;
+  final int rssi;
+
+  const WifiScanResult(this.ssid, this.rssi);
+
+  @override
+  String toString() {
+    return 'WifiScanResult{ssid: $ssid, rssi: $rssi}';
+  }
+}
+
+@immutable
 class BlufiEvent {
   static const typeConnectionState = 1;
   static const typeCustomData = 2;

@@ -16,6 +16,8 @@ sealed class BLEScanEvent {
     data class Error(val eventType: Int, val errorCode: Int, val message: String) : BLEScanEvent()
 }
 
+data class WifiScanResult(val ssid: String, val rssi: Int)
+
 
 sealed class BlufiEvent {
     companion object {

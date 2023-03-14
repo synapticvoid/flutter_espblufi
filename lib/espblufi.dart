@@ -29,6 +29,8 @@ class Espblufi {
 
   Future<DeviceStatus> requestDeviceStatus() => EspblufiPlatform.instance.requestDeviceStatus();
 
+  Future<List<WifiScanResult>> requestWifiScan() => EspblufiPlatform.instance.requestWifiScan();
+
   Future<int> configureParameters(BlufiConfigureParams params) =>
       EspblufiPlatform.instance.configureParameters(params);
 }

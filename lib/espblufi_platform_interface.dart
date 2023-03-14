@@ -42,5 +42,7 @@ abstract class EspblufiPlatform extends PlatformInterface {
 
   Future<DeviceStatus> requestDeviceStatus();
 
+  Future<List<WifiScanResult>> requestWifiScan();
+
   Future<int> configureParameters(BlufiConfigureParams params);
 }

@@ -25,8 +25,7 @@ class MethodChannelEspblufi extends EspblufiPlatform {
       });
 
   @override
-  Stream<BlufiEvent> get events =>
-      stateChannel.receiveBroadcastStream().distinct().map((event) {
+  Stream<BlufiEvent> get events => stateChannel.receiveBroadcastStream().distinct().map((event) {
         final map = Map<String, dynamic>.from(event);
         print("Received event. data=$map");
         return mapToBlufiEvent(map);
@@ -71,6 +70,13 @@ class MethodChannelEspblufi extends EspblufiPlatform {
   }
 
   @override
+  Future<List<WifiScanResult>> requestWifiScan() async {
+    final list = List<dynamic>.from(await methodChannel.invokeMethod("requestWifiScan"))
+        .map((e) => Map<String, dynamic>.from(e));
+    return mapToWifiScanResult(list);
+  }
+
+  @override
   Future<int> configureParameters(BlufiConfigureParams params) {
     return methodChannel.invokeMethod("configureParameters", {
       "opMode": params.opMode,
@@ -78,4 +84,5 @@ class MethodChannelEspblufi extends EspblufiPlatform {
       "staPassword": params.staPassword,
     }).then((status) => status);
   }
+
 }
