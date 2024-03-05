@@ -26,10 +26,12 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
-    compileSdkVersion 33
+    compileSdkVersion 34
+
     defaultConfig {
+        compileSdk 34
+        targetSdk 34
         minSdkVersion 23
-        targetSdk 33
     }
 
     compileOptions {
