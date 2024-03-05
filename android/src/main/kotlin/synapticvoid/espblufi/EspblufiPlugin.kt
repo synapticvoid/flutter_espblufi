@@ -67,6 +67,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
     private lateinit var handler: Handler
 
     // BLE
+    private lateinit var bluetoothAdapter: BluetoothAdapter
     private lateinit var bluetoothLeScanner: BluetoothLeScanner
     private var scanConf: BLEScanConf? = null
     private var scanning = false
@@ -108,7 +109,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         handler = Handler(Looper.getMainLooper())
 
         val bluetoothManager = context.getSystemService(BluetoothManager::class.java)
-        val bluetoothAdapter = bluetoothManager.adapter
+        bluetoothAdapter = bluetoothManager.adapter
         bluetoothLeScanner = bluetoothAdapter.bluetoothLeScanner
 
     }
@@ -122,24 +123,34 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             startBLEScan()
             result.success(true)
         }
+
+        "isBluetoothEnabled" -> {
+            result.success(bluetoothAdapter.isEnabled)
+        }
+
         "connect" -> {
             val macAddress = call.argument<String?>("macAddress") ?: ""
             connect(macAddress)
             result.success(true)
         }
+
         "disconnect" -> {
             disconnect()
             result.success(true)
         }
+
         "requestDeviceVersion" -> {
             requestDeviceVersion(result)
         }
+
         "requestDeviceStatus" -> {
             requestDeviceStatus(result)
         }
+
         "requestWifiScan" -> {
             requestWifiScan(result)
         }
+
         "configureParameters" -> {
             val params = BlufiConfigureParams()
             params.opMode = call.argument<Int?>("opMode") ?: BlufiParameter.OP_MODE_NULL
@@ -148,11 +159,13 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
             configureParameters(result, params)
         }
+
         "postCustomData" -> {
             val data = call.argument<ByteArray?>("data") ?: byteArrayOf()
             postCustomData(data)
             result.success(true)
         }
+
         else -> {
             result.notImplemented()
         }
@@ -387,6 +400,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                         onGattConnected()
                         updateMessage(String.format("Connected %s", devAddr), false)
                     }
+
                     BluetoothProfile.STATE_DISCONNECTED -> {
                         gatt.close()
                         onGattDisconnected()
@@ -570,6 +584,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                         String.format("Receive device version: %s", response.versionString), true
                     )
                 }
+
                 else -> {
                     val message = "Device version error, code=$status"
                     resultDeviceVersion?.error("device_version", message, null)
@@ -648,6 +663,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 )
                 executeOnMainThread { scanResultsSink?.success(data) }
             }
+
             is BLEScanEvent.InProgress -> {
                 val devices = leDevices.map {
                     hashMapOf(
@@ -663,6 +679,7 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 )
                 executeOnMainThread { scanResultsSink?.success(data) }
             }
+
             is BLEScanEvent.Error -> {
                 executeOnMainThread {
                     eventsSink?.error(
@@ -681,10 +698,12 @@ class EspblufiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 "type" to BlufiEvent.TYPE_CONNECTION_STATE,
                 "connected" to event.connected,
             )
+
             is BlufiEvent.CustomDataReceived -> hashMapOf(
                 "type" to BlufiEvent.TYPE_CUSTOM_DATA,
                 "data" to event.data,
             )
+
             is BlufiEvent.Error -> {
                 Log.d(TAG, "emitBlufiEvent: error, error=$event")
                 executeOnMainThread {

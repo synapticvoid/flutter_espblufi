@@ -25,18 +25,26 @@ class MethodChannelEspblufi extends EspblufiPlatform {
       });
 
   @override
-  Stream<BlufiEvent> get events => stateChannel.receiveBroadcastStream().distinct().map((event) {
+  Stream<BlufiEvent> get events =>
+      stateChannel.receiveBroadcastStream().distinct().map((event) {
         final map = Map<String, dynamic>.from(event);
         print("Received event. data=$map");
         return mapToBlufiEvent(map);
       });
 
   @override
-  Future<void> startScan({String? filter, Duration timeout = defaultScanDuration}) {
+  Future<void> startScan(
+      {String? filter, Duration timeout = defaultScanDuration}) {
     return methodChannel.invokeMethod('startScan', {
       "filter": filter,
       "timeout": timeout.inMilliseconds,
     });
+  }
+
+  @override
+  Future<bool> isBluetoothEnabled() async {
+    return await methodChannel.invokeMethod<bool>("isBluetoothEnabled") ??
+        false;
   }
 
   @override
@@ -53,7 +61,8 @@ class MethodChannelEspblufi extends EspblufiPlatform {
 
   @override
   Future<String> requestDeviceVersion() async {
-    return await methodChannel.invokeMethod<String>('requestDeviceVersion') ?? "";
+    return await methodChannel.invokeMethod<String>('requestDeviceVersion') ??
+        "";
   }
 
   @override
@@ -65,14 +74,16 @@ class MethodChannelEspblufi extends EspblufiPlatform {
 
   @override
   Future<DeviceStatus> requestDeviceStatus() async {
-    final map = Map<String, dynamic>.from(await methodChannel.invokeMethod("requestDeviceStatus"));
+    final map = Map<String, dynamic>.from(
+        await methodChannel.invokeMethod("requestDeviceStatus"));
     return mapToDeviceStatus(map);
   }
 
   @override
   Future<List<WifiScanResult>> requestWifiScan() async {
-    final list = List<dynamic>.from(await methodChannel.invokeMethod("requestWifiScan"))
-        .map((e) => Map<String, dynamic>.from(e));
+    final list =
+        List<dynamic>.from(await methodChannel.invokeMethod("requestWifiScan"))
+            .map((e) => Map<String, dynamic>.from(e));
     return mapToWifiScanResult(list);
   }
 
@@ -84,5 +95,4 @@ class MethodChannelEspblufi extends EspblufiPlatform {
       "staPassword": params.staPassword,
     }).then((status) => status);
   }
-
 }

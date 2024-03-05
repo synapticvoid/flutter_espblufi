@@ -16,20 +16,29 @@ class Espblufi {
 
   Stream<BlufiEvent> events() => EspblufiPlatform.instance.events;
 
-  Future<void> startScan({String? filter, Duration timeout = defaultScanDuration}) =>
+  Future<void> startScan(
+          {String? filter, Duration timeout = defaultScanDuration}) =>
       EspblufiPlatform.instance.startScan(filter: filter, timeout: timeout);
 
-  Future<void> connect(String macAddress) => EspblufiPlatform.instance.connect(macAddress);
+  Future<bool> isBluetoothEnabled() =>
+      EspblufiPlatform.instance.isBluetoothEnabled();
 
-  Future<void> postCustomData(Uint8List data) => EspblufiPlatform.instance.postCustomData(data);
+  Future<void> connect(String macAddress) =>
+      EspblufiPlatform.instance.connect(macAddress);
+
+  Future<void> postCustomData(Uint8List data) =>
+      EspblufiPlatform.instance.postCustomData(data);
 
   Future<void> disconnect() => EspblufiPlatform.instance.disconnect();
 
-  Future<String> requestDeviceVersion() => EspblufiPlatform.instance.requestDeviceVersion();
+  Future<String> requestDeviceVersion() =>
+      EspblufiPlatform.instance.requestDeviceVersion();
 
-  Future<DeviceStatus> requestDeviceStatus() => EspblufiPlatform.instance.requestDeviceStatus();
+  Future<DeviceStatus> requestDeviceStatus() =>
+      EspblufiPlatform.instance.requestDeviceStatus();
 
-  Future<List<WifiScanResult>> requestWifiScan() => EspblufiPlatform.instance.requestWifiScan();
+  Future<List<WifiScanResult>> requestWifiScan() =>
+      EspblufiPlatform.instance.requestWifiScan();
 
   Future<int> configureParameters(BlufiConfigureParams params) =>
       EspblufiPlatform.instance.configureParameters(params);

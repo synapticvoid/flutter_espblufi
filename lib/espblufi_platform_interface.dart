@@ -26,11 +26,14 @@ abstract class EspblufiPlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  Future<void> startScan({String? filter, Duration timeout = defaultScanDuration});
+  Future<void> startScan(
+      {String? filter, Duration timeout = defaultScanDuration});
 
   Stream<BLEScanEvent> get scanResults;
 
   Stream<BlufiEvent> get events;
+
+  Future<bool> isBluetoothEnabled();
 
   Future<void> connect(String macAddress);
 
